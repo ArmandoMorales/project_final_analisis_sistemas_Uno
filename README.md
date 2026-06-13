@@ -115,8 +115,91 @@ Todas las rutas del API requieren la cabecera **`X-Tenant-ID`** (UUID del tenant
 | GET | `/auth/me` | Bearer JWT |
 | POST | `/auth/refresh` | Middleware `jwt.refresh` (renovación con ventana de refresh) |
 | POST | `/auth/logout` | Bearer JWT |
+| GET | `/notifications` | Bearer JWT |
+| GET | `/notifications/unread-count` | Bearer JWT |
+| PATCH | `/notifications/{notification}/read` | Bearer JWT |
+| PATCH | `/notifications/read-all` | Bearer JWT |
 
 Respuestas siempre en **JSON**.
+
+---
+
+## Módulo 25 — Notificaciones internas
+
+**Estudiante:** Armando Cecilio Morales Sagastume (carné 1890-23-16029, `amoraless32@miumg.edu.gt`)
+**Asignación:** "Implementar un listado o componente de notificaciones internas del sistema."
+
+### Qué se implementó
+
+- **Modelo de datos**: tabla `notifications` (migración, modelo `Notification`,
+  `NotificationFactory` y `NotificationSeeder`). Cada notificación pertenece a
+  un `tenant_id` y, opcionalmente, a un `user_id`:
+  - `user_id = null` → **notificación de difusión** (visible para todo el tenant).
+  - `user_id` definido → **notificación personal** (solo visible para ese usuario).
+- **API REST** (`/api/v1`, requiere `X-Tenant-ID` y JWT):
+  - `GET /notifications` — lista paginada de notificaciones visibles para el
+    usuario autenticado (personales + difusión de su tenant). Soporta
+    `?status=all|unread|read` y `?per_page=`.
+  - `GET /notifications/unread-count` — cantidad de notificaciones no leídas.
+  - `PATCH /notifications/{notification}/read` — marca una notificación como
+    leída (valida que pertenezca al tenant/usuario, responde 403 si no).
+  - `PATCH /notifications/read-all` — marca como leídas todas las
+    notificaciones visibles para el usuario.
+- **Frontend (Vue 3 + Pinia)**:
+  - Store `resources/js/stores/notifications.js`: estado de la lista,
+    paginación, filtro activo y contador de no leídas; acciones
+    `fetchNotifications`, `fetchUnreadCount`, `markAsRead`, `markAllAsRead`.
+  - Página dedicada `/notificaciones`
+    (`resources/js/modules/notifications/pages/NotificationsPage.vue`):
+    pestañas de filtro (Todas / No leídas / Leídas), tarjetas por tipo
+    (`info`, `success`, `warning`, `danger`), botón "Marcar como leída" por
+    ítem y "Marcar todas como leídas".
+  - Campanita en el header
+    (`resources/js/shared/components/NotificationBell.vue`, integrada en
+    `AppLayout.vue`): muestra un badge con el número de no leídas y un
+    desplegable con las notificaciones recientes y acceso rápido a la página
+    completa.
+- **Pruebas automatizadas** (`tests/Feature/NotificationApiTest.php`, 7
+  pruebas): visibilidad por tenant/usuario, filtro de no leídas, validación
+  de cabecera `X-Tenant-ID`, conteo de no leídas, marcar una notificación
+  propia como leída, rechazo (403) al intentar marcar una notificación de
+  otro usuario, y marcado masivo.
+- **Diagramas UML (Sprint 3)**: `docs/uml/notificaciones.md` — diagrama de
+  casos de uso, diagrama de clases y diagrama de secuencia del módulo, en
+  formato Mermaid (se renderizan directamente en GitHub).
+
+### Cómo probar el módulo
+
+1. Levanta el proyecto siguiendo la sección **Instalación y ejecución**
+   (incluye `php artisan migrate` y los seeders por defecto, que ya cargan
+   `NotificationSeeder`).
+2. El tenant de demostración tiene `slug = san-marcos-demo` e
+   `id = 00000000-0000-4000-8000-000000000001`. Usa ese valor como
+   `X-Tenant-ID` en las peticiones.
+3. Registra o usa un usuario de prueba (por ejemplo, con correo
+   `amoraless32@miumg.edu.gt`) y autentícate vía `POST /api/v1/auth/login`
+   para obtener el JWT.
+4. Vuelve a ejecutar el seeder de notificaciones si el usuario se creó
+   después de la siembra inicial:
+   ```bash
+   php artisan db:seed --class=Database\\Seeders\\NotificationSeeder
+   ```
+5. Desde la SPA, inicia sesión y visita `/notificaciones` o abre la
+   campanita del header para ver el listado, los filtros y marcar
+   notificaciones como leídas.
+6. Para validar el backend directamente:
+   ```bash
+   php artisan test --filter=NotificationApiTest
+   ```
+
+### Commits del módulo
+
+| Sprint | Commit | Descripción |
+|--------|--------|-------------|
+| Fix base previo | `eaddd38` | Corrige bug de colisión de clases en `JwtAuth` middleware (Windows), necesario para que las rutas protegidas por JWT funcionen en pruebas. |
+| Sprint 1 | `49438ec` | Migración, modelo, factory, seeder, endpoint `GET /notifications`, store y página inicial de notificaciones, ruta `/notificaciones` y pruebas base. |
+| Sprint 2 | `dd70609` | Endpoints para marcar como leída (individual y masivo), contador de no leídas, campanita en el header, filtros en la página y pruebas adicionales. |
+| Sprint 3 | `5e7b884` | Diagramas UML (casos de uso, clases y secuencia) del módulo en `docs/uml/notificaciones.md`. |
 
 ---
 
