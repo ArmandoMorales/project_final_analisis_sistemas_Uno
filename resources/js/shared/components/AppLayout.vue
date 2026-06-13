@@ -14,6 +14,7 @@
                 <router-link class="layout__link" to="/login">
                     Acceso
                 </router-link>
+                <NotificationBell />
             </nav>
         </header>
         <main class="layout__main">
@@ -23,6 +24,7 @@
 </template>
 
 <script setup>
+import NotificationBell from '@/shared/components/NotificationBell.vue';
 </script>
 
 <style scoped>
@@ -50,6 +52,7 @@
 
 .layout__nav {
     display: flex;
+    align-items: center;
     gap: 1rem;
 }
 

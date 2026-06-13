@@ -94,4 +94,87 @@ class NotificationApiTest extends TestCase
 
         $response->assertStatus(400);
     }
+
+    public function test_unread_count_reflects_only_visible_unread_notifications(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create(['tenant_id' => $tenant->id]);
+
+        Notification::factory()->create(['tenant_id' => $tenant->id, 'user_id' => null]);
+        Notification::factory()->forUser($user)->create(['read_at' => now()]);
+        Notification::factory()->forUser($user)->create();
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'X-Tenant-ID' => $tenant->id,
+        ])->getJson('/api/v1/notifications/unread-count');
+
+        $response->assertOk();
+        $response->assertJson(['unread_count' => 2]);
+    }
+
+    public function test_user_can_mark_own_notification_as_read(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create(['tenant_id' => $tenant->id]);
+
+        $notification = Notification::factory()->forUser($user)->create();
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'X-Tenant-ID' => $tenant->id,
+        ])->patchJson("/api/v1/notifications/{$notification->id}/read");
+
+        $response->assertOk();
+        $this->assertNotNull($response->json('data.read_at'));
+        $this->assertNotNull($notification->fresh()->read_at);
+    }
+
+    public function test_user_cannot_mark_another_users_notification_as_read(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create(['tenant_id' => $tenant->id]);
+        $otherUser = User::factory()->create(['tenant_id' => $tenant->id]);
+
+        $notification = Notification::factory()->forUser($otherUser)->create();
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'X-Tenant-ID' => $tenant->id,
+        ])->patchJson("/api/v1/notifications/{$notification->id}/read");
+
+        $response->assertStatus(403);
+        $this->assertNull($notification->fresh()->read_at);
+    }
+
+    public function test_user_can_mark_all_visible_notifications_as_read(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create(['tenant_id' => $tenant->id]);
+
+        Notification::factory()->create(['tenant_id' => $tenant->id, 'user_id' => null]);
+        Notification::factory()->forUser($user)->create();
+
+        $token = JWTAuth::fromUser($user);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'X-Tenant-ID' => $tenant->id,
+        ])->patchJson('/api/v1/notifications/read-all');
+
+        $response->assertOk();
+
+        $unreadResponse = $this->withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'X-Tenant-ID' => $tenant->id,
+        ])->getJson('/api/v1/notifications/unread-count');
+
+        $unreadResponse->assertJson(['unread_count' => 0]);
+    }
 }

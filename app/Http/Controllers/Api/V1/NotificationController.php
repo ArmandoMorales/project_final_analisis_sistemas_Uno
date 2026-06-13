@@ -44,4 +44,64 @@ class NotificationController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Return the count of unread notifications for the authenticated user.
+     */
+    public function unreadCount(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = auth('api')->user();
+
+        $count = Notification::query()
+            ->visibleTo($user)
+            ->unread()
+            ->count();
+
+        return response()->json([
+            'unread_count' => $count,
+        ]);
+    }
+
+    /**
+     * Mark a single notification as read.
+     */
+    public function markAsRead(Request $request, Notification $notification): JsonResponse
+    {
+        /** @var User $user */
+        $user = auth('api')->user();
+
+        if ((string) $notification->tenant_id !== (string) $user->tenant_id
+            || ($notification->user_id !== null && $notification->user_id !== $user->id)) {
+            return response()->json([
+                'message' => 'No tienes acceso a esta notificación.',
+            ], 403);
+        }
+
+        if (! $notification->isRead()) {
+            $notification->update(['read_at' => now()]);
+        }
+
+        return response()->json([
+            'data' => $notification->fresh(),
+        ]);
+    }
+
+    /**
+     * Mark every notification visible to the authenticated user as read.
+     */
+    public function markAllAsRead(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = auth('api')->user();
+
+        Notification::query()
+            ->visibleTo($user)
+            ->unread()
+            ->update(['read_at' => now()]);
+
+        return response()->json([
+            'message' => 'Todas las notificaciones se marcaron como leídas.',
+        ]);
+    }
 }

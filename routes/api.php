@@ -14,6 +14,9 @@ Route::middleware(['tenant', 'jwt.auth'])->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
 });
 
 Route::middleware(['tenant', 'jwt.refresh'])->group(function (): void {
