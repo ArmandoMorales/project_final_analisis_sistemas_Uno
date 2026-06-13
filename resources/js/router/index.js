@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import HomePage from '@/pages/HomePage.vue';
 import LoginPage from '@/modules/auth/pages/LoginPage.vue';
+import NotificationsPage from '@/modules/notifications/pages/NotificationsPage.vue';
 import { authGuard } from '@/router/guards';
 
 const router = createRouter({
@@ -16,6 +17,12 @@ const router = createRouter({
             name: 'login',
             component: LoginPage,
             meta: { guest: true },
+        },
+        {
+            path: '/notificaciones',
+            name: 'notifications',
+            component: NotificationsPage,
+            meta: { requiresAuth: true },
         },
     ],
 });
